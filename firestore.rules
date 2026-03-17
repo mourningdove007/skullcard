@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Games collection
+    match /games/{gameId} {
+      allow read: if true; // all games are publically visable
+      allow write: if false; // only server via functions
+      }
+  
+      match /playerHands/{playerId} {
+      allow read: if request.auth != null && request.auth.uid == playerId;
+      allow write: if false; // server only
+    }
+  }
+}
+
