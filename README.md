@@ -1,113 +1,46 @@
-# Skullcard (Firebase + Svelte)
+# SkullCard
 
-Realtime multiplayer 5‑card draw built with **Svelte** + **Firebase (Auth, Firestore, Cloud Functions, Hosting)**. The client is treated as untrusted; the backend is authoritative for game state transitions and move validation.
+Realtime multiplayer 5-card draw poker built with **Svelte** and **Firebase**. The server is authoritative for all game state — clients cannot advance phases or validate moves directly.
 
-## Security Model
+## Zero-Knowledge Proof
 
-The client is treated as fully untrusted. All game state transitions, move validation, turn enforcement, and pot settlement are handled exclusively server-side.
+SkullCard uses a zero-knowledge proof protocol to give players cryptographic guarantees about the deck without revealing card identities or deck order.
 
+The server proves two things to each client at the start of every hand:
 
-## Repository structure
+1. **The deck is a valid permutation** — the 52 cards dealt are a shuffle of the unique values `{0, 1, ..., 51}`, with no duplicates or omissions.
+2. **Each player's cards came from that deck** — using a Merkle tree committed to in the proof, each player can verify their cards are leaves of the same tree the server proved.
 
-- `src/`: Svelte SPA frontend
-  - `src/pages/Home.svelte`: lobby list + theme selection + anonymous sign‑in bootstrap
-  - `src/pages/RoomV2.svelte`: in‑room gameplay UI (reads `gamesV2/{gameId}`)
-  - `src/util/backendCallsV2.js`: client wrappers for callable functions
-- `functions/`: Firebase Cloud Functions (Node.js)
-  - `functions/playerCallsV2.js`: callable endpoints that validate and write game state
-  - `functions/updateTriggersV2.js`: Firestore triggers that advance phases / assign turns / settle hands
-  - `functions/schedulersV2.js`: scheduled cleanup/maintenance jobs
+A third statement can be established between players directly, without server involvement:
 
-## Data model
+3. **Opponents hold unique cards from the same deck** — players can exchange their Merkle paths with each other to confirm no two players were dealt the same card.
 
-- `gamesV2/{gameId}`: canonical game state
-  - `status`: `waiting | active | finished`
-  - `phase`: phase machine driving triggers (see below)
-  - `playersInGame`: ordered table/seating list
-  - `playersActiveInHand`: subset of players still in the current hand
-  - `playerDetails.{uid}`: `{ balance, bet, icon, isFolded }`
-  - `bettingState`: `{ currentTurn, currentBet, lastRaiseAmount, callAmount, minimumRaiseTo, maxBet }`
-  - `smallBlind`, `bigBlind`, `dealerIndex`, `hasBigBlindBet`
-  - `potInfo`: side‑pot breakdown derived from `playerDetails`
-  - `lastMove`, `timeOfLastMove`
-- `playerHands/{uid}`: per‑player hand storage (5 cards) written server‑side during deal
+### How it works
 
-## Phase machine
+The server generates a shuffled deck `A` and random salts `S`, then runs them through an arithmetic circuit compiled with [Circom](https://docs.circom.io). The circuit enforces the permutation constraint and outputs a Merkle root committing to the deck. A Groth16 SNARK proof is generated from this witness using [snarkjs](https://github.com/iden3/snarkjs).
 
-The phase field on `gamesV2/{gameId}` is the primary driver of backend automation in `functions/updateTriggersV2.js`.
+Each player receives `(hand, merkle_path, proof)`. The proof and verification key are public, so any player can verify the proof independently — in the browser UI or manually using the published verification key.
 
-- **`deal`**
-  - Trigger: `autoDealV2`
-  - Effects:
-    - shuffles a deck, deals 5 cards to each `playerHands/{uid}`
-    - advances dealer position
-    - assigns small/big blind and posts antes
-    - resets `isFolded` for the new hand
-    - sets `playersActiveInHand = playersInGame`
-    - sets `phase = assign-next-turn`
-- **`assign-next-turn`**
-  - Trigger: `assignNextTurn`
-  - Effects:
-    - calculates the next player who must act based on table order, current bets, blinds, folds, and all‑ins
-    - sets `bettingState.currentTurn`, `callAmount`, `minimumRaiseTo`, `maxBet`
-    - sets `phase = bet` when a player action is needed, otherwise `phase = settle`
-- **`bet`**
-  - Callable endpoints (validated server‑side):
-    - `betV2` (in `playerCallsV2.js`)
-    - `foldV2` (in `playerCallsV2.js`, only allowed for the current turn)
-  - Effects:
-    - updates `playerDetails` and sets `phase = assign-next-turn` to advance the round
-- **`settle`**
-  - Trigger: `autoSettleV2`
-  - Effects:
-    - recomputes `potInfo` from `playerDetails` at settle time
-    - evaluates hands for eligible players and distributes winnings
-    - resets bets
-    - removes zero‑balance players from `playersInGame`/`playersActiveInHand`
-    - sets `phase = deal` if 2+ players remain, else `phase = winner`
-- **`winner`**
-  - End state for an active game (used by scheduled cleanup)
+### Limitations
 
-## Backend architecture
+The current protocol does not prove the deck was randomly shuffled. The server chooses the ordering, and clients must trust it is not biased. A future protocol allowing clients to contribute randomness to the salt generation is described in the whitepaper.
 
-### Callable functions (`functions/playerCallsV2.js`)
+### Whitepaper
 
-Move requests are authenticated and validated on the server:
+The full technical description — circuit constraints, proof generation, and manual Groth16 verification — is in [`zk/circuits/report/`](zk/circuits/report/main.pdf).
 
-- `joinGameV2`: join a waiting lobby (capacity enforced server‑side)
-- `startGameV2`: moves a lobby to `status=active` and `phase=deal`
-- `betV2`: enforces phase, turn ownership, and balance constraints, then advances to `assign-next-turn`
-- `foldV2`: only the current turn player may fold; removes them from `playersActiveInHand` and advances to `assign-next-turn`
-- `leaveGameV2`: removes the player from the game (and from the active hand); in active games, leaving is treated as a forfeit
+## Stack
 
-### Firestore triggers (`functions/updateTriggersV2.js`)
-
-- `autoDealV2`: deals hands + assigns blinds + moves to `assign-next-turn`
-- `updatePotInfo`: recomputes `potInfo` when bets change
-- `assignNextTurn`: computes the next action seat (handles folds and new hands)
-- `autoSettleV2`: distributes pots, resets bets, removes zero‑balance players, advances to the next hand or winner
-- `autoClearFinishedGameV2`: resets a finished room back to a clean waiting lobby
-
-### Scheduled cleanup (`functions/schedulersV2.js`)
-
-- `finishWinnerDeclaredGamesV2`: marks winner‑phase games as finished
-- `cleanupInactiveGamesV2`: finishes inactive games and stale waiting lobbies based on `timeOfLastMove`
-
-## Frontend auth + security measures
-
-### Anonymous authentication (`src/pages/Home.svelte`)
-
-The app signs users in anonymously and uses the resulting Firebase Auth UID as the player identity. The UI reads lobby state in realtime from Firestore and invokes callable functions for all gameplay actions.
-
-### Server-side enforcement
-
-- **Authentication**: callable endpoints require `request.auth`
-- **Membership checks**: server verifies the caller is a member of the lobby/hand before allowing actions
-- **Turn enforcement**: server checks `bettingState.currentTurn` before allowing `betV2` and `foldV2`
-- **Bet constraints**: server enforces max bet, minimum call, and all‑in rules
-- **Client is untrusted**: UI state is derived from Firestore; the client cannot advance phases directly
+- **Frontend**: Svelte SPA
+- **Backend**: Firebase Cloud Functions (Node.js), Firestore, Auth, Hosting
+- **ZK**: Circom circuit, snarkjs (Groth16), circomlib
 
 ## Tests
 
-- Functions tests: `cd functions && npm test`
+```
+# Application
+cd functions && npm test
 
+# ZK circuit
+cd zk/circuits && npm test
+```
