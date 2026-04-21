@@ -1,0 +1,22 @@
+{
+  "name": "circuits",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha *.test.js --exit"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.6"
+  },
+  "devDependencies": {
+    "chai": "^6.2.2",
+    "circom_tester": "^0.0.24",
+    "mocha": "^11.7.5"
+  }
+}
