@@ -1,0 +1,14 @@
+{
+  "name": "shuffle-service-integration",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "mocha api.test.js --exit --timeout 30000"
+  },
+  "devDependencies": {
+    "chai": "^6.2.2",
+    "circomlibjs": "^0.1.7",
+    "mocha": "^11.7.5"
+  }
+}
