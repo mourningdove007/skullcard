@@ -38,7 +38,7 @@ The full technical description is in [`zk/circuits/report/`](zk/circuits/report/
 
 ## Rust Shuffle Service
 
-The shuffle service (`zk/rust/`) is a small Axum HTTP server that performs the cryptographically sensitive work of shuffling the deck, producing the salts, and building the Poseidon Merkle tree. Firebase Cloud Functions call it internally over an API key; clients never talk to it directly.
+The shuffle service (`zk/rust/`) is a small Axum HTTP server that performs the sensitive work of shuffling the deck, producing the salts, and building the Poseidon Merkle tree. Firebase Cloud Functions call it internally over an API key; clients never talk to it directly.
 
 ### Running locally
 
