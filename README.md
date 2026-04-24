@@ -34,6 +34,19 @@ The full technical description is in [`zk/circuits/report/`](zk/circuits/report/
 - **Frontend**: Svelte SPA
 - **Backend**: Firebase Cloud Functions (Node.js), Firestore, Auth, Hosting
 - **ZK**: Circom circuit, snarkjs (Groth16), circomlib
+- **Shuffle service**: Rust (Axum), deployed as a Docker container on Cloud Run
+
+## Rust Shuffle Service
+
+The shuffle service (`zk/rust/`) is a small Axum HTTP server that performs the cryptographically sensitive work of shuffling the deck, producing the salts, and building the Poseidon Merkle tree. Firebase Cloud Functions call it internally over an API key; clients never talk to it directly.
+
+### Running locally
+
+```bash
+cd zk/rust
+API_KEY=your_secret cargo run
+# POST http://localhost:8080/  with x-api-key: your_secret
+```
 
 ## Tests
 
@@ -43,4 +56,7 @@ cd functions && npm test
 
 # ZK circuit
 cd zk/circuits && npm test
+
+# Rust shuffle service (unit + integration)
+cd zk/rust && cargo test
 ```
