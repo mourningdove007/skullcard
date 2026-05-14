@@ -1,6 +1,6 @@
-# Shuffle service (`zk/rust`)
+# Shuffle service
 
-Axum HTTP service that generates a cryptographically random 52-card shuffle, computes a BN256 Poseidon Merkle tree, and produces a Halo2 KZG zero-knowledge proof that the deck is a valid permutation. Firebase `autoDeal` calls this service at deal time; players never contact it directly.
+Axum HTTP service that generates a random 52-card shuffle, computes a BN256 Poseidon Merkle tree, and produces a Halo2 KZG zero-knowledge proof that the deck is a valid permutation. 
 
 The Halo2 circuit that generates and verifies the proof lives in [`circuit/`](circuit/) - see [`circuit/README.md`](circuit/README.md) for circuit architecture, KZG trusted setup, and WASM build instructions.
 
