@@ -1,4 +1,4 @@
-# Halo2 Circuit
+# Halo2 Circuit (`zk/rust/circuit`)
 
 Separate Rust crate (`halo-circuit`) containing the Halo2 KZG permutation-and-commitment circuit. Used in two ways:
 

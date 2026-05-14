@@ -1,4 +1,4 @@
-# ZK layer (`zk/`)
+# ZK layer
 
 Zero-knowledge components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/).
 

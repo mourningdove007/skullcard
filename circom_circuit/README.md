@@ -1,6 +1,6 @@
 # Shuffle Circuit (Deprecated)
 
-> **This Circom/Groth16 implementation has been superseded by the Halo2 KZG circuit in [`zk/rust/circuit/`](../rust/circuit/).** The Halo2 circuit uses the same permutation and Merkle commitment logic but runs over the BN256 scalar field, uses Poseidon with BN256-compatible round constants, and produces a KZG/SHPLONK proof verified entirely in Rust/WASM. This directory is kept for reference.
+> **This Circom/Groth16 implementation has been superseded by the Halo2 KZG circuit in [`skullcard/rust/circuit/`](../rust/circuit/).** The Halo2 circuit uses the same permutation and Merkle commitment logic but runs over the BN256 scalar field, uses Poseidon with BN256-compatible round constants, and produces a KZG/SHPLONK proof verified entirely in Rust/WASM. This directory is kept for reference.
 
 ---
 

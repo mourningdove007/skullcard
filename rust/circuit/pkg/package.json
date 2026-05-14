@@ -1,0 +1,24 @@
+{
+  "name": "halo-circuit",
+  "type": "module",
+  "description": "Halo2 circuit proving a 52-card shuffle with a Poseidon Merkle commitment as the public output",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "halo_circuit_bg.wasm",
+    "halo_circuit.js",
+    "halo_circuit.d.ts"
+  ],
+  "main": "halo_circuit.js",
+  "types": "halo_circuit.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "halo2",
+    "zk-proof",
+    "poseidon",
+    "merkle",
+    "circuit"
+  ]
+}
