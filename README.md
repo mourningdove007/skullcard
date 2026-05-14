@@ -1,12 +1,13 @@
-# ZK layer
+# SkullCard Zero-Knowledge Proofs
 
 Zero-knowledge components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/).
 
-For a full technical description of the protocol, proof system, and security model see the [whitepaper](whitepaperV1.pdf).
+
+This project migrated away from a Circom implementation to Halo 2. A [whitepaper Version 2](whitepaperV2.pdf) is in progress to explain this update in detail. [Version 1](whitepaperV1.pdf) of the whitepaper gives a conceptual overview of the motivation and implementation of zero-knowledge proofs in the SkullCard poker application.
 
 ## Overview
 
-SkullCard uses a **Halo2 KZG** zero-knowledge proof to guarantee a fair shuffle without requiring players to trust the server. Before any cards are dealt, the server:
+SkullCard uses a **Halo2 KZG** zero-knowledge proof to guarantee a the shuffle contains the expected cards and players received cards from this shuffle without requiring players to trust the server. As the server uses a RNG to shuffle the cards, users still have to trust that the server did not arrange the cards maliciously. Before any cards are dealt, the server:
 
 1. Generates a cryptographically random permutation of 52 cards, each paired with a random 31-byte BN256 Fr salt.
 2. Commits to the entire deck by building a depth-6 **Poseidon Merkle tree** (BN256 Fr, R_F=8 R_P=56 x^5 S-box) over 64 leaves (52 cards padded to the next power of two).
@@ -50,9 +51,9 @@ See [`integration.test.js`](integration.test.js) for the full test suite coverin
 
 ## Backend (shuffle service)
 
-The shuffle service is an **Axum HTTP server** (`zk/rust/`) written in Rust. It is called once per round to generate the shuffle and produce the proof.
+The shuffle service is an **Axum HTTP server** (`rust/`) written in Rust. It is called once per round to generate the shuffle and produce the proof.
 
-- Proof generation runs in a dedicated `spawn_blocking` thread pool (Halo2 proving takes ~30-45 s of CPU).
+- Proof generation runs in a dedicated `spawn_blocking` thread pool (Halo2 proving takes ~11 s of CPU).
 - Every request requires an `x-api-key` header; missing or wrong key returns `401`.
 - The KZG trusted setup assets (`params.bin`, `vk.bin`) are pre-loaded at startup and also bundled into the WASM pkg for client verification.
 
