@@ -1,0 +1,29 @@
+[package]
+name = "halo-circuit"
+version = "0.1.0"
+edition = "2024"
+description = "Halo2 circuit proving a 52-card shuffle with a Poseidon Merkle commitment as the public output"
+license = "MIT OR Apache-2.0"
+keywords = ["halo2", "zk-proof", "poseidon", "merkle", "circuit"]
+categories = ["cryptography"]
+# Note: halo2_proofs and halo2_poseidon are git dependencies; publishing to
+# crates.io will require them to be published there first.
+
+[lib]
+name = "halo_circuit"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Enable wasm-bindgen glue and the JS-backed getrandom for WASM targets.
+wasm = ["dep:wasm-bindgen", "dep:getrandom", "getrandom/js"]
+
+[dependencies]
+ff = "0.13"
+num-bigint = "0.4"
+rand = "0.8"
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2", tag = "v0.3.0" }
+halo2_poseidon = { git = "https://github.com/privacy-ethereum/poseidon-gadget.git" }
+halo2curves = "0.6"
+wasm-bindgen = { version = "0.2", optional = true }
+getrandom  = { version = "0.2", optional = true }

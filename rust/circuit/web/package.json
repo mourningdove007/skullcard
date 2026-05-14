@@ -1,0 +1,13 @@
+{
+  "name": "shuffle-prover-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "cd .. && wasm-pack build --target web --out-dir pkg --features wasm",
+    "gen:fixture": "cd .. && cargo run --release --bin gen_fixture",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
