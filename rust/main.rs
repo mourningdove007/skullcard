@@ -1,5 +1,6 @@
 mod router;
 mod services;
+mod signing;
 
 // 8080 when PORT is unset; Cloud Run also defaults to 8080 and then sets PORT at runtime.
 const DEFAULT_PORT: &str = "8080";

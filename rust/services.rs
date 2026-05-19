@@ -2,6 +2,7 @@ use rand::{RngCore, seq::SliceRandom, thread_rng};
 use num_bigint::BigUint;
 use serde::Serialize;
 use halo_circuit::prover::{tree_from_decimal_salts, prove_from_decimal_salts};
+use crate::signing::ShuffleSigner;
 
 #[derive(Debug, Serialize)]
 pub struct MerklePathStep {
@@ -18,6 +19,8 @@ pub struct ShuffleResult {
     pub salts: Vec<String>,
     pub merkle_paths: Vec<Vec<MerklePathStep>>,
     pub proof_hex: String,
+    pub timestamp: u64,
+    pub ml_dsa_signature: String,
 }
 
 
@@ -48,13 +51,20 @@ fn shuffle_and_tree() -> Result<(Vec<u64>, Vec<String>, String, Vec<Vec<MerklePa
     Ok((cards, salts, root, merkle_paths))
 }
 
-pub fn generate_shuffle() -> Result<ShuffleResult, String> {
+pub fn generate_shuffle(signer: &ShuffleSigner) -> Result<ShuffleResult, String> {
     let (cards, salts, _tree_root, merkle_paths) = shuffle_and_tree()?;
 
     let bundle = prove_from_decimal_salts(&cards, &salts)?;
     let proof_hex: String = bundle.iter().map(|b| format!("{b:02x}")).collect();
 
-    Ok(ShuffleResult { cards, salts, merkle_paths, proof_hex })
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("system clock before epoch")
+        .as_secs();
+
+    let ml_dsa_signature = signer.sign_shuffle(&bundle, timestamp);
+
+    Ok(ShuffleResult { cards, salts, merkle_paths, proof_hex, timestamp, ml_dsa_signature })
 }
 
 #[cfg(test)]
@@ -226,12 +236,56 @@ mod tests {
     #[test]
     #[ignore = "slow: halo2 proof generation takes ~30s"]
     fn proof_root_matches_tree_root() {
-        let result = generate_shuffle().expect("generate_shuffle failed");
+        let signer = ShuffleSigner::from_env();
+        let result = generate_shuffle(&signer).expect("generate_shuffle failed");
         let bundle: Vec<u8> = (0..result.proof_hex.len() / 2)
             .map(|i| u8::from_str_radix(&result.proof_hex[i * 2..i * 2 + 2], 16).unwrap())
             .collect();
         let bundle_root = BigUint::from_bytes_le(&bundle[..32]).to_string();
         let (tree_root, _) = tree_from_decimal_salts(&result.cards, &result.salts).unwrap();
         assert_eq!(bundle_root, tree_root);
+    }
+
+    #[test]
+    #[ignore = "slow: halo2 proof generation takes ~30s"]
+    fn shuffle_result_timestamp_is_recent() {
+        let (signer, _) = ShuffleSigner::for_test();
+        let before = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let result = generate_shuffle(&signer).expect("generate_shuffle failed");
+        let after = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        assert!(result.timestamp >= before, "timestamp predates the shuffle call");
+        assert!(result.timestamp <= after, "timestamp is in the future");
+    }
+
+    #[test]
+    #[ignore = "slow: halo2 proof generation takes ~30s"]
+    fn shuffle_result_signature_verifies() {
+        use libcrux_ml_dsa::ml_dsa_65::{self as mldsa, MLDSA65Signature, MLDSA65VerificationKey};
+        use base64::{engine::general_purpose::STANDARD as B64, Engine};
+
+        let (signer, vk_bytes) = ShuffleSigner::for_test();
+        let result = generate_shuffle(&signer).expect("generate_shuffle failed");
+
+        let bundle: Vec<u8> = (0..result.proof_hex.len() / 2)
+            .map(|i| u8::from_str_radix(&result.proof_hex[i * 2..i * 2 + 2], 16).unwrap())
+            .collect();
+
+        let mut payload = bundle.clone();
+        payload.extend_from_slice(&result.timestamp.to_le_bytes());
+
+        let vk = MLDSA65VerificationKey::new(vk_bytes.as_slice().try_into().unwrap());
+        let sig_bytes = B64.decode(&result.ml_dsa_signature).unwrap();
+        let signature = MLDSA65Signature::new(sig_bytes.as_slice().try_into().unwrap());
+
+        assert!(
+            mldsa::verify(&vk, &payload, b"skullcard-shuffle-v1", &signature).is_ok(),
+            "shuffle result signature failed verification"
+        );
     }
 }
