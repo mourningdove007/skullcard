@@ -143,3 +143,4 @@ rust/circuit/target
 rust/target/
 rust/.DS_Store
 .DS_Store
+rust/.signing_keys.sh

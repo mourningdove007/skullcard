@@ -5,10 +5,22 @@ import { dirname, join } from 'path';
 
 import init, { verify_deck, load_verifier_from_bytes } from './rust/circuit/pkg/halo_circuit.js';
 import { buildTree, getPath, verifyPath } from './merkle.js';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_URL = 'http://127.0.0.1:8080';
 const API_KEY = process.env.API_KEY ?? 'your_secret_key';
+const ML_DSA_VK_B64 = process.env.ML_DSA_VERIFICATION_KEY ?? '';
+const ML_DSA_CONTEXT = new TextEncoder().encode('skullcard-shuffle-v1');
+
+function timestampToLE(ts) {
+  const buf = new ArrayBuffer(8);
+  const view = new DataView(buf);
+  const big = BigInt(ts);
+  view.setUint32(0, Number(big & 0xffffffffn), true);
+  view.setUint32(4, Number((big >> 32n) & 0xffffffffn), true);
+  return new Uint8Array(buf);
+}
 
 
 function hexToBytes(hex) {
@@ -290,5 +302,60 @@ describe('Shuffle randomness', function () {
   it('Two independent shuffles produce cards in different orders', async () => {
     const second = await requestShuffle();
     assert.notDeepEqual(second.cards, shuffle.cards);
+  });
+});
+
+
+describe('ML-DSA-65 signature', function () {
+  this.timeout(10_000);
+
+  let verificationKey;
+
+  before(function () {
+    if (!ML_DSA_VK_B64) {
+      // Run with: ML_DSA_VERIFICATION_KEY=<base64> npm test
+      this.skip();
+    }
+    verificationKey = Buffer.from(ML_DSA_VK_B64, 'base64');
+  });
+
+  it('mlDsaSignature field is a non-empty base64 string', () => {
+    assert.isString(shuffle.mlDsaSignature);
+    assert.isAbove(shuffle.mlDsaSignature.length, 0);
+    assert.match(shuffle.mlDsaSignature, /^[A-Za-z0-9+/]+=*$/, 'must be valid base64');
+  });
+
+  it('decoded signature is 3309 bytes (ML-DSA-65)', () => {
+    assert.equal(Buffer.from(shuffle.mlDsaSignature, 'base64').length, 3309);
+  });
+
+  it('signature verifies against proof bundle and timestamp', () => {
+    const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
+    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp)]);
+    assert.isTrue(
+      ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }),
+      'valid shuffle signature must verify',
+    );
+  });
+
+  it('fails when proof bundle byte is tampered', () => {
+    const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
+    const tampered = new Uint8Array(bundle);
+    tampered[0] ^= 0xff;
+    const payload = new Uint8Array([...tampered, ...timestampToLE(shuffle.timestamp)]);
+    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }));
+  });
+
+  it('fails when timestamp is tampered', () => {
+    const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
+    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp + 1)]);
+    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }));
+  });
+
+  it('fails with wrong context string', () => {
+    const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
+    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp)]);
+    const wrongCtx = new TextEncoder().encode('skullcard-shuffle-v2');
+    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: wrongCtx }));
   });
 });

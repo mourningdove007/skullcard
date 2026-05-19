@@ -1,12 +1,10 @@
 
-# docker build -t shuffle-service .
-# docker run -p 8080:8080 -e API_KEY=your_secret_key shuffle-service
-
 FROM rust:1-bookworm AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-COPY main.rs router.rs services.rs ./
+COPY main.rs router.rs services.rs signing.rs ./
+COPY bin ./bin
 COPY circuit ./circuit
 
 RUN cargo build --release

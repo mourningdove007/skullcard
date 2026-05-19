@@ -67,23 +67,15 @@ Full API documentation, deployment instructions, and Docker/Cloud Run examples a
 | [`rust/circuit/`](rust/circuit/) | Halo2 circuit crate: permutation proof, Poseidon Merkle commitment, KZG trusted setup, WASM verifier exports. See [`rust/circuit/README.md`](rust/circuit/README.md). |
 | [`circom_circuit/`](circom_circuit/) | **Deprecated.** Original Circom/Groth16 implementation, superseded by the Halo2 KZG circuit. Kept for reference only. |
 
-## Shared utilities
+## Merkle Tree Javascript
 
 **`merkle.js`**: Merkle tree construction and path verification using the same BN256 Poseidon hash as the Halo2 circuit, computed via WASM. Exposes `buildTree`, `getPath`, and `verifyPath`. Used by the integration tests.
 
 ## Integration tests
 
-Tests require the shuffle service to be running locally and the WASM pkg to be built.
+A local backend service must be running for these integration tests (`integration.test.js`).
 
 ```bash
-cd zk
 npm install
 npm test
 ```
-
-Coverage:
-- Endpoint response shape (`cards`, `salts`, `merklePaths`, `proofHex`)
-- Halo2 proof verification via `verify_deck` (WASM, pre-loaded with `params.bin` + `vk.bin`)
-- Merkle root extracted client-side from the proof bundle
-- Merkle path verification for all 52 card positions
-- Tamper detection: corrupted proof bytes, wrong root, mutated cards/salts, cross-player path swap
