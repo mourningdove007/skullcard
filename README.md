@@ -1,6 +1,6 @@
-# SkullCard Zero-Knowledge Proofs
+# SkullCard: Zero-Knowledge Proofs & Post-Quantum Signatures
 
-Zero-knowledge components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/).
+Zero-knowledge and post-quantum signature components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/). The [`rust/README.md`](rust/README.md) contains schema information and detailed architecture of the API.
 
 
 This project migrated away from a Circom implementation to Halo 2. A [whitepaper Version 2](whitepaperV2.pdf) is in progress to explain this update in detail. [Version 1](whitepaperV1.pdf) of the whitepaper gives a conceptual overview of the motivation and implementation of zero-knowledge proofs in the SkullCard poker application.
@@ -11,12 +11,26 @@ SkullCard uses a **Halo2 KZG** zero-knowledge proof to guarantee a the shuffle c
 
 1. Generates a cryptographically random permutation of 52 cards, each paired with a random 31-byte BN256 Fr salt.
 2. Commits to the entire deck by building a depth-6 **Poseidon Merkle tree** (BN256 Fr, R_F=8 R_P=56 x^5 S-box) over 64 leaves (52 cards padded to the next power of two).
-3. Proves in zero knowledge, using a **Halo2 KZG/SHPLONK circuit** over the BN256 curve, that all 52 card indices are distinct values in `[0, 51]` and that the Merkle root correctly commits to their (card, salt) leaf hashes.
-4. Returns the proof bundle. The Merkle root is the **public input** to the proof: it is embedded in the first 32 bytes of the bundle (little-endian BN256 Fr scalar) and is never sent as a separate field.
+3. Proves in zero knowledge, using a **Halo2 KZG/SHPLONK circuit** over the BN256 curve, that all 52 card indices are distinct values in `[0, 51]` and that the Merkle root correctly commits to their leaf hashes.
+4. Returns the proof bundle. The Merkle root is the **public input** to the proof: it is embedded in the first 32 bytes of the bundle and is never sent as a separate field.
+5. Signs the response with an **ML-DSA-65** post-quantum signature so clients can verify the response originated from this server.
+
+## Subdirectories
+
+| Path | Description |
+|------|-------------|
+| [`rust/`](rust/) | Axum HTTP service: shuffle, Merkle tree, Halo2 KZG prover, and REST endpoint. See [`rust/README.md`](rust/README.md). |
+| [`rust/circuit/`](rust/circuit/) | Halo2 circuit crate: permutation proof, Poseidon Merkle commitment, KZG trusted setup, WASM verifier exports. See [`rust/circuit/README.md`](rust/circuit/README.md). |
+| [`circom_circuit/`](circom_circuit/) | **Deprecated.** Original Circom/Groth16 implementation, superseded by the Halo2 KZG circuit. Kept for reference only. |
+
+
+## Backend (shuffle service)
+
+The shuffle service is an **Axum HTTP server** (`rust/`) written in Rust. It is called once per round to generate the shuffle and produce the proof. Full API documentation, deployment instructions, and Docker/Cloud Run examples are in [`rust/README.md`](rust/README.md).
 
 ## Client-side validation
 
-A client validates a shuffle in two independent steps.
+A client validates a shuffle in three independent steps.
 
 **Step 1: Verify the proof.** Pass the raw proof bundle to `verify_deck`. This checks the KZG/SHPLONK transcript and confirms the embedded Merkle root is the one the prover actually used. No trust in the server is required.
 
@@ -47,43 +61,14 @@ for (const { sibling, direction } of merklePath) {
 const cardValid = current === root;
 ```
 
-See [`integration.test.js`](integration.test.js) for the full test suite covering both steps, including tamper-detection cases.
+**Step 3: Verify the ML-DSA-65 signature.** The `mlDsaSignature` field proves the response came from the legitimate server. The signed payload is the raw proof bytes followed by the 8-byte little-endian Unix timestamp. Use the [`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum) library and the public verification key from [`rust/README.md`](rust/README.md).
 
-## Backend (shuffle service)
-
-The shuffle service is an **Axum HTTP server** (`rust/`) written in Rust. It is called once per round to generate the shuffle and produce the proof.
-
-- Proof generation runs in a dedicated `spawn_blocking` thread pool (Halo2 proving takes ~11 s of CPU).
-- Every request requires an `x-api-key` header; missing or wrong key returns `401`.
-- The KZG trusted setup assets (`params.bin`, `vk.bin`) are pre-loaded at startup and also bundled into the WASM pkg for client verification.
-
-Full API documentation, deployment instructions, and Docker/Cloud Run examples are in [`rust/README.md`](rust/README.md).
-
-## Subdirectories
-
-| Path | Description |
-|------|-------------|
-| [`rust/`](rust/) | Axum HTTP service: shuffle, Merkle tree, Halo2 KZG prover, and REST endpoint. See [`rust/README.md`](rust/README.md). |
-| [`rust/circuit/`](rust/circuit/) | Halo2 circuit crate: permutation proof, Poseidon Merkle commitment, KZG trusted setup, WASM verifier exports. See [`rust/circuit/README.md`](rust/circuit/README.md). |
-| [`circom_circuit/`](circom_circuit/) | **Deprecated.** Original Circom/Groth16 implementation, superseded by the Halo2 KZG circuit. Kept for reference only. |
-
-## Shared utilities
-
-**`merkle.js`**: Merkle tree construction and path verification using the same BN256 Poseidon hash as the Halo2 circuit, computed via WASM. Exposes `buildTree`, `getPath`, and `verifyPath`. Used by the integration tests.
 
 ## Integration tests
 
-Tests require the shuffle service to be running locally and the WASM pkg to be built.
+A local backend service must be running for these integration tests (`integration.test.js`).
 
 ```bash
-cd zk
 npm install
 npm test
 ```
-
-Coverage:
-- Endpoint response shape (`cards`, `salts`, `merklePaths`, `proofHex`)
-- Halo2 proof verification via `verify_deck` (WASM, pre-loaded with `params.bin` + `vk.bin`)
-- Merkle root extracted client-side from the proof bundle
-- Merkle path verification for all 52 card positions
-- Tamper detection: corrupted proof bytes, wrong root, mutated cards/salts, cross-player path swap
