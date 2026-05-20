@@ -131,10 +131,10 @@ gcloud run deploy shuffle \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars API_KEY=your_secret_key \
+  --env-vars-file .env.yaml \
   --port 8080 \
-  --memory 2Gi \
-  --cpu 2 \
+  --memory 4Gi \
+  --cpu 4 \
   --concurrency 1 \
   --timeout 120
 ```
