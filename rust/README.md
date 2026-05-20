@@ -1,6 +1,6 @@
 # Shuffle service
 
-Axum HTTP service that generates a random 52-card shuffle, computes a BN256 Poseidon Merkle tree, and produces a Halo2 KZG zero-knowledge proof that the deck is a valid permutation. 
+Axum HTTP service that generates a random 52-card shuffle, computes a BN256 Poseidon Merkle tree, produces a Halo2 KZG zero-knowledge proof that the deck is a valid permutation, and signs the proof bundle with an ML-DSA-65 post-quantum signature so clients can verify the response originated from this service.
 
 
 ## Response

@@ -91,8 +91,4 @@ Routine server deployments, code changes unrelated to signing, and dependency bu
 4. Redeploy the server with the new secrets.
 5. Securely delete the old signing key from wherever it was stored.
 
----
 
-## Algorithm background
-
-ML-DSA-65 (formerly Dilithium3) is a NIST-standardised post-quantum digital signature scheme (FIPS 204). It provides ~128-bit post-quantum security. The `libcrux-ml-dsa` crate used here has formally verified core arithmetic (hax/F*), making it the safest available Rust implementation.
