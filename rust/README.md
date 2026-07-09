@@ -168,6 +168,20 @@ docker run -p 8080:8080 \
   zk
 ```
 
+### Using an env file
+
+Instead of repeating `-e` flags, keep the variables in a `.env` file and pass it with `--env-file`. Copy the checked-in template and fill in real values:
+
+```bash
+cp .env.example .env
+# edit .env with your API_KEY and ML-DSA keys
+
+docker build -t zk .
+docker run -p 8080:8080 --env-file .env zk
+```
+
+`.env` uses **dotenv** format (`KEY=value`, one per line, no quotes) and is gitignored — only `.env.example` is committed. Note this is a different format from Cloud Run's `--env-vars-file .env.yaml`, which is YAML (`KEY: value`); the two files are not interchangeable.
+
 ## Deploy (Cloud Run)
 
 ```bash
