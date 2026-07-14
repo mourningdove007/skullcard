@@ -1,4 +1,4 @@
-# dealer — shuffle service
+# dealer: shuffle service
 
 Axum HTTP service that generates a random 52-card shuffle, computes a BN256 Poseidon Merkle tree,
 and produces a Halo2 KZG zero-knowledge proof that the deck is a valid permutation. Each response
@@ -25,7 +25,7 @@ client ──POST /──► dealer ──shuffle+prove──► digest ──PO
 | `merklePaths` | `{ sibling: string, direction: 0\|1 }[][52]` | One 6-step Merkle path per card position. The client extracts the Merkle root from `proofHex` and uses `(card, salt, merklePath, root)` to verify each card belongs to the committed shuffle. |
 | `proofHex` | `string` | Hex-encoded proof bundle: first 32 bytes are the Merkle root (little-endian BN256 Fr), remainder is the KZG/SHPLONK transcript. The root is never sent as a separate field; the client extracts it from here. |
 | `timestamp` | `number` | Unix timestamp (seconds) at the moment the shuffle was generated. Included in the signed payload. |
-| `mlDsaSignature` | `string` | Base64-encoded ML-DSA-65 signature over `SHA256("skullcard-shuffle-v1" \|\| proofHex_bytes \|\| timestamp_u64_le)` — the domain-tagged payload is hashed first, then the 32-byte digest is signed (by the kms service) with the **empty** ML-DSA context. See [ML-DSA-KEYS.md](../ML-DSA-KEYS.md). |
+| `mlDsaSignature` | `string` | Base64-encoded ML-DSA-65 signature over `SHA256("skullcard-shuffle-v1" \|\| proofHex_bytes \|\| timestamp_u64_le)`. The domain-tagged payload is hashed first, then the 32-byte digest is signed (by the kms service) with the **empty** ML-DSA context. See [ML-DSA-KEYS.md](../ML-DSA-KEYS.md). |
 
 ### Proof bundle layout
 
@@ -49,10 +49,10 @@ BigInt('0x' + proofHex.slice(0, 64).match(/../g).reverse().join('')).toString()
 
 ## ML-DSA signature: hash then sign
 
-The dealer **hashes the payload, then has the digest signed** — it never signs the raw response
+The dealer **hashes the payload, then has the digest signed**; it never signs the raw response
 bytes, and never signs anything itself. Producing the `mlDsaSignature` field:
 
-1. Build the payload `"skullcard-shuffle-v1" || proofHex_bytes || timestamp_u64_le` — the domain tag `skullcard-shuffle-v1` (ASCII), then the proof bundle, then the 8-byte little-endian timestamp.
+1. Build the payload `"skullcard-shuffle-v1" || proofHex_bytes || timestamp_u64_le`: the domain tag `skullcard-shuffle-v1` (ASCII), then the proof bundle, then the 8-byte little-endian timestamp.
 2. Compute `digest = SHA-256(payload)` (32 bytes).
 3. Send `digest` to the kms service (`POST /sign`), which returns an ML-DSA-65 signature over it with the **empty** context.
 
@@ -61,10 +61,10 @@ that digest** (not the raw payload), using the **empty** context and the public 
 from the kms service's [`GET /public-key`](../kms/README.md#get-public-key).
 
 > The domain tag `skullcard-shuffle-v1` is folded into the hashed payload rather than passed as the
-> ML-DSA context. This keeps the kms service a generic digest signer (empty context) — all
+> ML-DSA context. This keeps the kms service a generic digest signer (empty context); all
 > domain separation lives in the preimage the dealer controls.
 
-**Why hash then sign?** It decouples the multi-kilobyte proof bundle from the signing operation —
+**Why hash then sign?** It decouples the multi-kilobyte proof bundle from the signing operation;
 only a fixed 32-byte digest ever crosses the wire to the kms. The proof bundle never leaves the
 dealer process, and the signing key never leaves the kms.
 
@@ -72,7 +72,7 @@ dealer process, and the signing key never leaves the kms.
 > ML-DSA-65's ~192-bit target; bump to SHA-384/512 if you want the pre-hash to match the
 > signature's security level (this changes the wire format and all verifiers).
 
-The verification key clients need is published by the kms service, not the dealer — see
+The verification key clients need is published by the kms service, not the dealer. See
 [`kms/README.md`](../kms/README.md) and [ML-DSA-KEYS.md](../ML-DSA-KEYS.md) for key management.
 
 ## Auth

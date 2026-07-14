@@ -1,12 +1,12 @@
 # ML-DSA-65 Signing Keys
 
-This document covers the one-time key generation, storage, and rotation policy for the ML-DSA-65 keypair used to sign every shuffle proof bundle. The keypair lives **only** in the [`kms`](kms/) signing service; the `dealer` service never holds it — it sends digests to the kms to be signed.
+This document covers the one-time key generation, storage, and rotation policy for the ML-DSA-65 keypair used to sign every shuffle proof bundle. The keypair lives **only** in the [`kms`](kms/) signing service; the `dealer` service never holds it. It sends digests to the kms to be signed.
 
 ---
 
 ## What the signature covers
 
-Every `/` (shuffle) response includes `mlDsaSignature`, `proofHex`, and `timestamp`. The service **hashes the payload and signs the digest** — it does not sign the raw bytes. The payload that gets hashed is:
+Every `/` (shuffle) response includes `mlDsaSignature`, `proofHex`, and `timestamp`. The service **hashes the payload and signs the digest**; it does not sign the raw bytes. The payload that gets hashed is:
 
 ```
 "skullcard-shuffle-v1"  ||  proof_bundle_bytes  ||  timestamp_u64_le
@@ -21,9 +21,9 @@ where `"skullcard-shuffle-v1"` is the ASCII domain tag, `proof_bundle_bytes` is 
 2. Encode `timestamp` as a little-endian u64 to get `ts_bytes` (8 bytes)
 3. Concatenate: `payload = "skullcard-shuffle-v1" || proof_bytes || ts_bytes` (domain tag first)
 4. Compute `digest = SHA-256(payload)` (32 bytes)
-5. Verify `mlDsaSignature` (base64-decode first) against `digest` — **not** the raw `payload` — using the published verification key and the **empty** context
+5. Verify `mlDsaSignature` (base64-decode first) against `digest`, **not** the raw `payload`, using the published verification key and the **empty** context
 
-The domain tag `skullcard-shuffle-v1` lives inside the hashed payload (not the ML-DSA context) so the kms service stays a generic digest signer (empty context) — all domain separation is in the preimage the dealer controls. If the bundle format ever changes incompatibly, bump the tag to `skullcard-shuffle-v2` (and rotate the key if needed, see below).
+The domain tag `skullcard-shuffle-v1` lives inside the hashed payload (not the ML-DSA context) so the kms service stays a generic digest signer (empty context). All domain separation is in the preimage the dealer controls. If the bundle format ever changes incompatibly, bump the tag to `skullcard-shuffle-v2` (and rotate the key if needed, see below).
 
 ---
 

@@ -18,7 +18,7 @@ Given private inputs `cards: [u64; 52]` and `salts: [Fr; 52]`, the circuit prove
 
 | Name | Type | Count | Contents |
 |------|------|-------|----------|
-| `w_fixed` | Advice | 1 | `cards[v]` at row `v`; canonical witness — all card column copies are tied back here via permutation argument |
+| `w_fixed` | Advice | 1 | `cards[v]` at row `v`; canonical witness; all card column copies are tied back here via permutation argument |
 | `v_col` | Fixed | 1 | Row index: cell at row `v` holds constant `v` |
 | `card_col[j]` | Advice | 52 | `card_col[j]` holds `cards[j]` on every row |
 | `eq_col[j]` | Advice | 52 | `1` if `cards[j] == v` at row `v`, else `0` |

@@ -2,19 +2,10 @@
 
 A small Axum microservice that holds the ML-DSA-65 keypair and signs 32-byte digests on behalf of the [`dealer`](../dealer/) service. It is the **only** component that touches the private signing key. The dealer never sees the key; it hashes each shuffle response locally and sends only the resulting digest here to be signed.
 
-```
- dealer                          kms
- ──────                          ───
- digest = SHA-256(              POST /sign  { digest }   ┌─────────────────────┐
-   "skullcard-shuffle-v1"  ───────────────────────────► │ ML-DSA-65 sign      │
-   || proof_bundle              x-api-key: <KMS_API_KEY> │ (empty context)     │
-   || timestamp_le)                                      └─────────────────────┘
-                          ◄─────────────────────────────  { signature }
-```
 
 ## Why a separate service
 
-Isolating the private key in its own process (and, in production, its own network/security boundary) means a compromise of the proof-generating dealer does not expose the signing key. The dealer can only ask the kms to sign digests; it can never read or exfiltrate the key.
+Isolating the private key in its own process (and, in production, its own network/security boundary) means a compromise of the proof-generating dealer does not expose the signing key. The dealer can only ask the kms to sign digests; it can never read or exfiltrate the key.  A separate service allows us to dynamically update the keys in the KMS without having to redeploy other services.
 
 ## Configuration
 
@@ -24,8 +15,8 @@ All configuration is via environment variables (see [`.env.example`](.env.exampl
 |----------|---------|-------------|
 | `API_KEY` | Yes | Required as `x-api-key` on `POST /sign`. Share it only with the dealer service. |
 | `ML_DSA_SIGNING_KEY` | **Yes** | Base64 ML-DSA-65 signing key. Never commit; inject as a runtime secret. |
-| `ML_DSA_VERIFICATION_KEY` | No | Base64 ML-DSA-65 verification key. Public — served by `GET /public-key`. |
-| `PORT` | — | Listen port. Defaults to `8080`. |
+| `ML_DSA_VERIFICATION_KEY` | No | Base64 ML-DSA-65 verification key. Public, served by `GET /public-key`. |
+| `PORT` | No | Listen port. Defaults to `8080`. |
 
 Generate a keypair with the bundled binary (run offline, once):
 
@@ -53,7 +44,7 @@ Signs a single 32-byte digest. **Requires** `x-api-key: <API_KEY>`.
 { "algorithm": "ML-DSA-65", "signature": "<base64 ML-DSA-65 signature>" }
 ```
 
-The signature is produced with the **empty** ML-DSA context over the exact 32 bytes provided. Domain separation is the caller's responsibility — the dealer folds its domain tag into the digest preimage before hashing, so this service stays a generic digest signer.
+The signature is produced with the **empty** ML-DSA context over the exact 32 bytes provided. Domain separation is the caller's responsibility. The dealer folds its domain tag into the digest preimage before hashing, so this service stays a generic digest signer.
 
 **Errors**: `401` bad/missing key · `400` digest is not base64 or does not decode to exactly 32 bytes.
 
@@ -66,7 +57,7 @@ curl -sS -X POST http://127.0.0.1:8081/sign \
 
 ### `GET /public-key`
 
-Returns the current ML-DSA-65 verification key. **No API key required** — the verification key is public and clients use it to check the `mlDsaSignature` on shuffle responses.
+Returns the current ML-DSA-65 verification key. **No API key required.** The verification key is public and clients use it to check the `mlDsaSignature` on shuffle responses.
 
 **200 OK**
 
