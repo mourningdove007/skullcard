@@ -1,4 +1,4 @@
-# SkullCard: Zero-Knowledge Proofs & Post-Quantum Signatures
+# SkullCard: Deck Shuffle/Deal with ZK proofs and PQ Signatures
 
 Zero-knowledge and post-quantum signature components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/). The [`dealer/README.md`](dealer/README.md) contains schema information and detailed architecture of the API, and [`kms/README.md`](kms/README.md) documents the signing service.
 

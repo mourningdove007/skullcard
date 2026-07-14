@@ -17,4 +17,4 @@ rand          = "0.8"
 halo-circuit = { path = "circuit" }
 base64         = "0.22"
 sha2          = "0.10"
-reqwest       = { version = "0.12", default-features = false, features = ["json"] }
+reqwest       = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

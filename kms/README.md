@@ -1,9 +1,6 @@
-# kms — ML-DSA-65 signing service
+# ML-DSA-65 Key Management Service
 
-A small Axum microservice that holds the ML-DSA-65 keypair and signs 32-byte digests on behalf
-of the [`dealer`](../dealer/) service. It is the **only** component that touches the private
-signing key. The dealer never sees the key; it hashes each shuffle response locally and sends
-only the resulting digest here to be signed.
+A small Axum microservice that holds the ML-DSA-65 keypair and signs 32-byte digests on behalf of the [`dealer`](../dealer/) service. It is the **only** component that touches the private signing key. The dealer never sees the key; it hashes each shuffle response locally and sends only the resulting digest here to be signed.
 
 ```
  dealer                          kms
@@ -17,9 +14,7 @@ only the resulting digest here to be signed.
 
 ## Why a separate service
 
-Isolating the private key in its own process (and, in production, its own network/security
-boundary) means a compromise of the proof-generating dealer does not expose the signing key.
-The dealer can only ask the kms to sign digests; it can never read or exfiltrate the key.
+Isolating the private key in its own process (and, in production, its own network/security boundary) means a compromise of the proof-generating dealer does not expose the signing key. The dealer can only ask the kms to sign digests; it can never read or exfiltrate the key.
 
 ## Configuration
 
@@ -58,9 +53,7 @@ Signs a single 32-byte digest. **Requires** `x-api-key: <API_KEY>`.
 { "algorithm": "ML-DSA-65", "signature": "<base64 ML-DSA-65 signature>" }
 ```
 
-The signature is produced with the **empty** ML-DSA context over the exact 32 bytes provided.
-Domain separation is the caller's responsibility — the dealer folds its domain tag into the
-digest preimage before hashing, so this service stays a generic digest signer.
+The signature is produced with the **empty** ML-DSA context over the exact 32 bytes provided. Domain separation is the caller's responsibility — the dealer folds its domain tag into the digest preimage before hashing, so this service stays a generic digest signer.
 
 **Errors**: `401` bad/missing key · `400` digest is not base64 or does not decode to exactly 32 bytes.
 
@@ -73,8 +66,7 @@ curl -sS -X POST http://127.0.0.1:8081/sign \
 
 ### `GET /public-key`
 
-Returns the current ML-DSA-65 verification key. **No API key required** — the verification key
-is public and clients use it to check the `mlDsaSignature` on shuffle responses.
+Returns the current ML-DSA-65 verification key. **No API key required** — the verification key is public and clients use it to check the `mlDsaSignature` on shuffle responses.
 
 **200 OK**
 
@@ -86,8 +78,7 @@ is public and clients use it to check the `mlDsaSignature` on shuffle responses.
 }
 ```
 
-`keyFormat: "raw"` means `verificationKey` is the base64 of the raw ML-DSA-65 public key bytes
-(directly usable by `@noble/post-quantum`).
+`keyFormat: "raw"` means `verificationKey` is the base64 of the raw ML-DSA-65 public key bytes (directly usable by `@noble/post-quantum`).
 
 ```bash
 curl -sS http://127.0.0.1:8081/public-key
@@ -102,8 +93,7 @@ ML_DSA_VERIFICATION_KEY=<base64> \
 cargo run --bin kms
 ```
 
-Listens on `0.0.0.0:8080` (override with `PORT`). In docker-compose it is published on host port
-`8081` and reached by the dealer at `http://kms:8080`.
+Listens on `0.0.0.0:8080` (override with `PORT`). In docker-compose it is published on host port `8081` and reached by the dealer at `http://kms:8080`.
 
 ## Tests
 
@@ -111,8 +101,7 @@ Listens on `0.0.0.0:8080` (override with `PORT`). In docker-compose it is publis
 cargo test
 ```
 
-Unit tests cover round-trip signing/verification, digest-length rejection, and that a non-empty
-context fails to verify (the KMS-compatible empty-context invariant).
+Unit tests cover round-trip signing/verification, digest-length rejection, and that a non-empty context fails to verify (the KMS-compatible empty-context invariant).
 
 ## Docker
 
@@ -121,5 +110,4 @@ docker build -t skullcard-kms .
 docker run -p 8081:8080 --env-file .env skullcard-kms
 ```
 
-Usually you run this via the top-level [`docker-compose.yml`](../docker-compose.yml) alongside the
-dealer, which wires `KMS_URL` and the shared `KMS_API_KEY` automatically.
+Usually you run this via the top-level [`docker-compose.yml`](../docker-compose.yml) alongside the dealer, which wires `KMS_URL` and the shared `KMS_API_KEY` automatically.

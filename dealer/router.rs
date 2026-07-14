@@ -55,7 +55,7 @@ async fn produce_shuffle(
     let digest = shuffle_digest(&unsigned.bundle, unsigned.timestamp);
     let ml_dsa_signature = state.signer.sign_digest(&digest).await.map_err(|e| (
         StatusCode::BAD_GATEWAY,
-        Json(serde_json::json!({ "error": format!("signing failed: {e}") })),
+        Json(serde_json::json!({ "error": format!("signing failed.") })),
     ))?;
 
     Ok(Json(ShuffleResult {
