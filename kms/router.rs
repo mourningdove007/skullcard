@@ -1,7 +1,8 @@
-use axum::{Json, Router, extract::State, http::{HeaderMap, StatusCode}, routing::{get, post}};
+use axum::{Json, Router, extract::State, http::{HeaderMap, Method, StatusCode}, routing::{get, post}};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use serde::Deserialize;
 use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::signing::Signer;
 
@@ -18,10 +19,16 @@ pub fn app() -> Router {
         "API_KEY must be set to a non-empty value (an empty key disables authentication)"
     );
     let signer = Arc::new(Signer::from_env());
+
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET]);
+
     Router::new()
         .route("/sign", post(sign))
         .route("/public-key", get(public_key))
         .with_state(AppState { api_key, signer })
+        .layer(cors)
 }
 
 #[derive(Deserialize)]
