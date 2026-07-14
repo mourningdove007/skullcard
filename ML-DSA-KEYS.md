@@ -1,28 +1,29 @@
 # ML-DSA-65 Signing Keys
 
-This document covers the one-time key generation, storage, and rotation policy for the ML-DSA-65 keypair used to sign every shuffle proof bundle returned by the Rust ZK server.
+This document covers the one-time key generation, storage, and rotation policy for the ML-DSA-65 keypair used to sign every shuffle proof bundle. The keypair lives **only** in the [`kms`](kms/) signing service; the `dealer` service never holds it. It sends digests to the kms to be signed.
 
 ---
 
 ## What the signature covers
 
-Every `/` (shuffle) response includes `mlDsaSignature`, `proofHex`, and `timestamp`. The signed payload is:
+Every `/` (shuffle) response includes `mlDsaSignature`, `proofHex`, and `timestamp`. The service **hashes the payload and signs the digest**; it does not sign the raw bytes. The payload that gets hashed is:
 
 ```
-proof_bundle_bytes  ||  timestamp_u64_le
+"skullcard-shuffle-v1"  ||  proof_bundle_bytes  ||  timestamp_u64_le
 ```
 
-where `proof_bundle_bytes` is the raw bytes behind `proofHex` (the first 32 bytes of the bundle are the merkle root), and `timestamp_u64_le` is the Unix timestamp in seconds as an 8-byte little-endian integer.
+where `"skullcard-shuffle-v1"` is the ASCII domain tag, `proof_bundle_bytes` is the raw bytes behind `proofHex` (the first 32 bytes of the bundle are the merkle root), and `timestamp_u64_le` is the Unix timestamp in seconds as an 8-byte little-endian integer. The dealer computes `SHA-256(payload)` (32 bytes) and the kms signs that digest with the **empty** ML-DSA context.
 
 **Cards and salts are intentionally excluded.** Players verify the shuffle is valid by checking the proof and merkle root without needing to know the deck order.
 
 **To verify client-side:**
 1. Hex-decode `proofHex` to get `proof_bytes`
 2. Encode `timestamp` as a little-endian u64 to get `ts_bytes` (8 bytes)
-3. Concatenate: `payload = proof_bytes || ts_bytes`
-4. Verify `mlDsaSignature` (base64-decode first) against `payload` using the published verification key and context string `skullcard-shuffle-v1`
+3. Concatenate: `payload = "skullcard-shuffle-v1" || proof_bytes || ts_bytes` (domain tag first)
+4. Compute `digest = SHA-256(payload)` (32 bytes)
+5. Verify `mlDsaSignature` (base64-decode first) against `digest`, **not** the raw `payload`, using the published verification key and the **empty** context
 
-The context string domain-separates this signature from any other ML-DSA usage on the same key. If the bundle format ever changes incompatibly, bump the context string to `skullcard-shuffle-v2` (and rotate the key if needed, see below).
+The domain tag `skullcard-shuffle-v1` lives inside the hashed payload (not the ML-DSA context) so the kms service stays a generic digest signer (empty context). All domain separation is in the preimage the dealer controls. If the bundle format ever changes incompatibly, bump the tag to `skullcard-shuffle-v2` (and rotate the key if needed, see below).
 
 ---
 
@@ -37,11 +38,11 @@ The context string domain-separates this signature from any other ML-DSA usage o
 
 ## One-time key generation (offline)
 
-Generate the keypair **once**, on an air-gapped or trusted machine, using the `keygen` binary in this repo. Do **not** run this on the server or in CI.
+Generate the keypair **once**, on an air-gapped or trusted machine, using the `keygen` binary in the kms crate. Do **not** run this on the server or in CI.
 
 ```sh
 # Build and run the keygen binary
-cd rust
+cd kms
 cargo run --bin keygen
 ```
 
@@ -59,9 +60,9 @@ Store them immediately:
 
 ---
 
-## Server startup
+## Service startup
 
-The server reads both variables at startup via `ShuffleSigner::from_env()`. If either is missing or malformed, the process panics immediately. This is intentional: a server without a valid keypair must not silently produce unsigned responses.
+The **kms** service reads both variables at startup via `Signer::from_env()`. If either is missing or malformed, the process panics immediately. This is intentional: the signing service must not start without a valid keypair. (The dealer service never reads these variables.)
 
 Required environment variables:
 
@@ -77,7 +78,7 @@ ML_DSA_VERIFICATION_KEY=<base64-encoded verification key>
 Rotate (generate a new keypair and redeploy) in any of these situations:
 
 1. **Key compromise**: the signing key was exposed in logs, a config file, version control, or to an untrusted party.
-2. **Context string bump**: if `skullcard-shuffle-v1` in `signing.rs` is changed to a new version due to a breaking bundle format change, issue a new keypair to make the version boundary unambiguous.
+2. **Domain tag bump**: if `skullcard-shuffle-v1` in `dealer/kms_client.rs` is changed to a new version due to a breaking bundle format change, issue a new keypair to make the version boundary unambiguous.
 3. **Algorithm deprecation**: if ML-DSA-65 is deprecated or a vulnerability is found in the `libcrux-ml-dsa` implementation.
 4. **Scheduled rotation policy**: follow your organisation's key rotation schedule (e.g. annually).
 

@@ -1,0 +1,20 @@
+services:
+  kms:
+    build: ./kms
+    environment:
+      API_KEY: ${KMS_API_KEY}
+      ML_DSA_SIGNING_KEY: ${ML_DSA_SIGNING_KEY}
+      ML_DSA_VERIFICATION_KEY: ${ML_DSA_VERIFICATION_KEY}
+    ports:
+      - "8081:8080" 
+
+  dealer:
+    build: ./dealer
+    environment:
+      API_KEY: ${API_KEY}
+      KMS_URL: http://kms:8080
+      KMS_API_KEY: ${KMS_API_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kms

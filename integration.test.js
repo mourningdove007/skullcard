@@ -3,15 +3,20 @@ import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-import init, { verify_deck, load_verifier_from_bytes } from './rust/circuit/pkg/halo_circuit.js';
+import init, { verify_deck, load_verifier_from_bytes } from './dealer/circuit/pkg/halo_circuit.js';
 import { buildTree, getPath, verifyPath } from './merkle.js';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const BACKEND_URL = 'http://127.0.0.1:8080';
+
+const BACKEND_URL = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
+const KMS_URL = process.env.KMS_URL ?? 'http://127.0.0.1:8081';
 const API_KEY = process.env.API_KEY ?? 'your_secret_key';
-const ML_DSA_VK_B64 = process.env.ML_DSA_VERIFICATION_KEY ?? '';
-const ML_DSA_CONTEXT = new TextEncoder().encode('skullcard-shuffle-v1');
+const ML_DSA_VK_DEFAULT = "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";
+const ML_DSA_VK_B64 = process.env.ML_DSA_VERIFICATION_KEY ?? ML_DSA_VK_DEFAULT;
+const DOMAIN_TAG = new TextEncoder().encode('skullcard-shuffle-v1');
+const EMPTY_CONTEXT = new Uint8Array(0);
 
 function timestampToLE(ts) {
   const buf = new ArrayBuffer(8);
@@ -20,6 +25,11 @@ function timestampToLE(ts) {
   view.setUint32(0, Number(big & 0xffffffffn), true);
   view.setUint32(4, Number((big >> 32n) & 0xffffffffn), true);
   return new Uint8Array(buf);
+}
+
+function shuffleDigest(bundleBytes, timestamp) {
+  const payload = new Uint8Array([...DOMAIN_TAG, ...bundleBytes, ...timestampToLE(timestamp)]);
+  return sha256(payload);
 }
 
 
@@ -61,9 +71,9 @@ before(async function () {
   this.timeout(300_000);
 
   const [wasmBytes, paramsBytes, vkBytes] = await Promise.all([
-    readFile(join(__dirname, 'rust/circuit/pkg/halo_circuit_bg.wasm')),
-    readFile(join(__dirname, 'rust/circuit/pkg/params.bin')),
-    readFile(join(__dirname, 'rust/circuit/pkg/vk.bin')),
+    readFile(join(__dirname, 'dealer/circuit/pkg/halo_circuit_bg.wasm')),
+    readFile(join(__dirname, 'dealer/circuit/pkg/params.bin')),
+    readFile(join(__dirname, 'dealer/circuit/pkg/vk.bin')),
   ]);
   await init({ module_or_path: wasmBytes });
   load_verifier_from_bytes(paramsBytes, vkBytes);
@@ -90,7 +100,7 @@ describe('Shuffle endpoint', function () {
     assert.equal(res.status, 401);
   });
 
-  it('cards is an array of 52 distinct integers 0–51', () => {
+  it('cards is an array of 52 distinct integers 0-51', () => {
     const sorted = [...shuffle.cards].sort((a, b) => a - b);
     assert.deepEqual(sorted, Array.from({ length: 52 }, (_, i) => i));
   });
@@ -131,7 +141,7 @@ describe('Halo2 proof verification', function () {
     assert.isTrue(verify_deck(bundle), 'proof bundle should verify');
   });
 
-  it('Proof bundle root (bytes 0–31, LE) is a valid decimal string', () => {
+  it('Proof bundle root (bytes 0-31, LE) is a valid decimal string', () => {
     assert.isString(merkleRoot);
     assert.match(merkleRoot, /^\d+$/, 'root extracted from bundle must be a decimal string');
     assert.isAbove(merkleRoot.length, 0);
@@ -180,7 +190,7 @@ describe('Merkle tree consistency', function () {
     assert.equal(tree.levels[6].length, 1);
   });
 
-  it('Padding leaves 52–63 are all the same hash', () => {
+  it('Padding leaves 52-63 are all the same hash', () => {
     const padHash = tree.levels[0][52];
     for (let i = 53; i < 64; i++) {
       assert.equal(tree.levels[0][i], padHash);
@@ -258,7 +268,7 @@ describe('Game lifecycle: shuffle → deal → verify', function () {
 
     const allDealt = [...player1, ...player2].map(serverDeal);
 
-    // Each client independently verifies their dealt cards against the committed root.
+    
     const verifications = await Promise.all(
       allDealt.map(({ card, salt, path }) =>
         verifyPath(card, salt, path, merkleRoot)
@@ -268,14 +278,14 @@ describe('Game lifecycle: shuffle → deal → verify', function () {
       assert.isTrue(ok, `dealt card at slot ${i} failed path verification`)
     );
 
-    // 10 distinct cards were dealt
+    
     const dealtValues = allDealt.map((d) => d.card);
     assert.equal(new Set(dealtValues).size, 10, '10 dealt cards must all be distinct');
   });
 
   it("Player 1's card does not verify against player 2's Merkle path", async () => {
     const p1 = { card: shuffle.cards[0], salt: shuffle.salts[0] };
-    const p2Path = shuffle.merklePaths[5]; // path belonging to position 5 (player 2)
+    const p2Path = shuffle.merklePaths[5]; 
     const cheating = await verifyPath(p1.card, p1.salt, p2Path, merkleRoot);
     assert.isFalse(cheating, "cross-player path swap must be rejected");
   });
@@ -306,16 +316,42 @@ describe('Shuffle randomness', function () {
 });
 
 
+describe('kms service', function () {
+  this.timeout(10_000);
+
+  it('GET /public-key returns the verification key without auth', async () => {
+    const res = await fetch(`${KMS_URL}/public-key`); 
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.algorithm, 'ML-DSA-65');
+    assert.equal(body.keyFormat, 'raw');
+    assert.isString(body.verificationKey);
+    assert.match(body.verificationKey, /^[A-Za-z0-9+/]+=*$/, 'verificationKey must be base64');
+  });
+
+  it('served key matches the one the tests verify against', async function () {
+    const body = await (await fetch(`${KMS_URL}/public-key`)).json();
+    assert.equal(body.verificationKey, ML_DSA_VK_B64,
+      'kms key must match the ML_DSA_VERIFICATION_KEY used to verify signatures');
+  });
+
+  it('POST /sign requires an API key', async () => {
+    const res = await fetch(`${KMS_URL}/sign`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }, 
+      body: JSON.stringify({ digest: Buffer.alloc(32).toString('base64') }),
+    });
+    assert.equal(res.status, 401);
+  });
+});
+
+
 describe('ML-DSA-65 signature', function () {
   this.timeout(10_000);
 
   let verificationKey;
 
   before(function () {
-    if (!ML_DSA_VK_B64) {
-      // Run with: ML_DSA_VERIFICATION_KEY=<base64> npm test
-      this.skip();
-    }
     verificationKey = Buffer.from(ML_DSA_VK_B64, 'base64');
   });
 
@@ -329,33 +365,38 @@ describe('ML-DSA-65 signature', function () {
     assert.equal(Buffer.from(shuffle.mlDsaSignature, 'base64').length, 3309);
   });
 
-  it('signature verifies against proof bundle and timestamp', () => {
+  it('signature verifies against the digest of proof bundle and timestamp', () => {
     const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
-    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp)]);
+    const digest = shuffleDigest(bundle, shuffle.timestamp);
     assert.isTrue(
-      ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }),
-      'valid shuffle signature must verify',
+      ml_dsa65.verify(sig, digest, verificationKey, { context: EMPTY_CONTEXT }),
+      'valid shuffle signature must verify against the payload digest',
     );
+  });
+
+  it('does not verify against the un-hashed payload', () => {
+    const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
+    const rawPayload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp)]);
+    assert.isFalse(ml_dsa65.verify(sig, rawPayload, verificationKey, { context: EMPTY_CONTEXT }));
   });
 
   it('fails when proof bundle byte is tampered', () => {
     const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
     const tampered = new Uint8Array(bundle);
     tampered[0] ^= 0xff;
-    const payload = new Uint8Array([...tampered, ...timestampToLE(shuffle.timestamp)]);
-    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }));
+    const digest = shuffleDigest(tampered, shuffle.timestamp);
+    assert.isFalse(ml_dsa65.verify(sig, digest, verificationKey, { context: EMPTY_CONTEXT }));
   });
 
   it('fails when timestamp is tampered', () => {
     const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
-    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp + 1)]);
-    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: ML_DSA_CONTEXT }));
+    const digest = shuffleDigest(bundle, shuffle.timestamp + 1);
+    assert.isFalse(ml_dsa65.verify(sig, digest, verificationKey, { context: EMPTY_CONTEXT }));
   });
 
-  it('fails with wrong context string', () => {
+  it('fails under a non-empty context', () => {
     const sig = Buffer.from(shuffle.mlDsaSignature, 'base64');
-    const payload = new Uint8Array([...bundle, ...timestampToLE(shuffle.timestamp)]);
-    const wrongCtx = new TextEncoder().encode('skullcard-shuffle-v2');
-    assert.isFalse(ml_dsa65.verify(sig, payload, verificationKey, { context: wrongCtx }));
+    const digest = shuffleDigest(bundle, shuffle.timestamp);
+    assert.isFalse(ml_dsa65.verify(sig, digest, verificationKey, { context: DOMAIN_TAG }));
   });
 });

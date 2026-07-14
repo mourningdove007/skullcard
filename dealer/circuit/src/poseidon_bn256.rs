@@ -1,10 +1,7 @@
-use ff::{Field};
-use halo2_poseidon::poseidon::primitives::{generate_constants, Mds, Spec, ConstantLength, Hash};
+use ff::Field;
+use halo2_poseidon::poseidon::primitives::{generate_constants, ConstantLength, Hash, Mds, Spec};
 use halo2curves::bn256::Fr;
 
-/// Poseidon-128 with the x^5 S-box, width=3, for the BN256 scalar field.
-/// Uses R_F=8, R_P=56 (same arity/security margin as the Pasta P128Pow5T3).
-/// Round constants are generated at runtime via the Grain LFSR over BN256 Fr.
 #[derive(Debug)]
 pub struct PoseidonBn256Spec;
 

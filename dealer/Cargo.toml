@@ -1,0 +1,20 @@
+[package]
+name = "dealer"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "dealer"
+path = "main.rs"
+
+[dependencies]
+axum           = { version = "0.8", features = ["json"] }
+serde          = { version = "1",   features = ["derive"] }
+serde_json     = "1"
+tokio          = { version = "1",   features = ["macros", "rt-multi-thread", "net"] }
+num-bigint    = "0.4"
+rand          = "0.8"
+halo-circuit = { path = "circuit" }
+base64         = "0.22"
+sha2          = "0.10"
+reqwest       = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
