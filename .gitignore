@@ -134,13 +134,13 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
-# Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 public
 
-rust/circuit/target
-rust/target/
-rust/.DS_Store
+dealer/circuit/target
+dealer/target/
+dealer/.DS_Store
+kms/target/
 .DS_Store
-rust/.signing_keys.sh
+.signing_keys.sh

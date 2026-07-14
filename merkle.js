@@ -1,6 +1,4 @@
-// Pallas-curve Poseidon (P128Pow5T3) via the halo2 circuit WASM module.
-// This matches the field used by the Rust backend and the halo2 proof's public signal.
-import init, { poseidon2 } from './rust/circuit/pkg/halo_circuit.js';
+import init, { poseidon2 } from './dealer/circuit/pkg/halo_circuit.js';
 
 const N_CARDS = 52;
 const N_LEAVES = 64;

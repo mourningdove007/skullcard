@@ -27,10 +27,10 @@ use crate::poseidon_bn256::bn256_poseidon2;
 
 const K: u32 = 13;
 
-/// Deterministic KZG setup seed shared by the native prover and the WASM verifier.
+
 const KZG_SETUP_SEED: [u8; 32] = *b"skullcard-kzg-v1-fixed-000000000";
 
-// Cached once per process/WASM session — both are pure functions of fixed inputs.
+
 static CACHED_PARAMS: OnceLock<ParamsKZG<Bn256>> = OnceLock::new();
 static CACHED_VK: OnceLock<VerifyingKey<G1Affine>> = OnceLock::new();
 
@@ -124,7 +124,7 @@ pub fn prove(cards: [u64; N], salts: [Fp; N]) -> Vec<u8> {
     let params = get_params();
     let circuit = DeckCircuit { cards, salts };
 
-    // Clone the cached VK — keygen_pk takes it by value, but the cache holds it for verify.
+    
     let vk = get_vk().clone();
     let pk = keygen_pk(params, vk, &circuit).expect("keygen_pk failed");
 

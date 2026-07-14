@@ -1,7 +1,6 @@
 import { assert } from 'chai';
 import { buildTree, getPath, verifyPath } from './merkle.js';
 
-// Salts as small integers — valid in both BN128 and Pallas fields.
 const CARDS = Array.from({ length: 52 }, (_, i) => i);
 const SALTS = Array.from({ length: 52 }, (_, i) => BigInt(i + 1000));
 
@@ -87,7 +86,7 @@ describe('Merkle Tree Module', function () {
     assert.equal(tree.levels[6].length, 1);
   });
 
-  it('Padding leaves (positions 52–63) are all the same hash', () => {
+  it('Padding leaves (positions 52-63) are all the same hash', () => {
     const paddingHash = tree.levels[0][52];
     for (let i = 53; i < 64; i++) {
       assert.equal(tree.levels[0][i], paddingHash);

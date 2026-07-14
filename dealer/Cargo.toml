@@ -1,15 +1,11 @@
 [package]
-name = "backend"
+name = "dealer"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "backend"
+name = "dealer"
 path = "main.rs"
-
-[[bin]]
-name = "keygen"
-path = "bin/keygen.rs"
 
 [dependencies]
 axum           = { version = "0.8", features = ["json"] }
@@ -19,5 +15,6 @@ tokio          = { version = "1",   features = ["macros", "rt-multi-thread", "ne
 num-bigint    = "0.4"
 rand          = "0.8"
 halo-circuit = { path = "circuit" }
-libcrux-ml-dsa = "0.0.9"
 base64         = "0.22"
+sha2          = "0.10"
+reqwest       = { version = "0.12", default-features = false, features = ["json"] }

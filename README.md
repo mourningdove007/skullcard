@@ -1,6 +1,6 @@
 # SkullCard: Zero-Knowledge Proofs & Post-Quantum Signatures
 
-Zero-knowledge and post-quantum signature components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/). The [`rust/README.md`](rust/README.md) contains schema information and detailed architecture of the API.
+Zero-knowledge and post-quantum signature components for the poker application SkullCard. The application is live on the web at [skullcard.com](https://skullcard.com/). The [`dealer/README.md`](dealer/README.md) contains schema information and detailed architecture of the API, and [`kms/README.md`](kms/README.md) documents the signing service.
 
 
 This project migrated away from a Circom implementation to Halo 2. A [whitepaper Version 2](whitepaperV2.pdf) is in progress to explain this update in detail. [Version 1](whitepaperV1.pdf) of the whitepaper gives a conceptual overview of the motivation and implementation of zero-knowledge proofs in the SkullCard poker application.
@@ -13,20 +13,26 @@ SkullCard uses a **Halo2 KZG** zero-knowledge proof to guarantee a the shuffle c
 2. Commits to the entire deck by building a depth-6 **Poseidon Merkle tree** (BN256 Fr, R_F=8 R_P=56 x^5 S-box) over 64 leaves (52 cards padded to the next power of two).
 3. Proves in zero knowledge, using a **Halo2 KZG/SHPLONK circuit** over the BN256 curve, that all 52 card indices are distinct values in `[0, 51]` and that the Merkle root correctly commits to their leaf hashes.
 4. Returns the proof bundle. The Merkle root is the **public input** to the proof: it is embedded in the first 32 bytes of the bundle and is never sent as a separate field.
-5. Signs the response with an **ML-DSA-65** post-quantum signature so clients can verify the response originated from this server.
+5. Signs the response with an **ML-DSA-65** post-quantum signature — produced by a separate signing service (`kms/`) that holds the private key — so clients can verify the response originated from this operator.
 
 ## Subdirectories
 
 | Path | Description |
 |------|-------------|
-| [`rust/`](rust/) | Axum HTTP service: shuffle, Merkle tree, Halo2 KZG prover, and REST endpoint. See [`rust/README.md`](rust/README.md). |
-| [`rust/circuit/`](rust/circuit/) | Halo2 circuit crate: permutation proof, Poseidon Merkle commitment, KZG trusted setup, WASM verifier exports. See [`rust/circuit/README.md`](rust/circuit/README.md). |
+| [`dealer/`](dealer/) | Axum HTTP service: shuffle, Merkle tree, Halo2 KZG prover, and REST endpoint. Hashes each response and asks the kms to sign the digest. See [`dealer/README.md`](dealer/README.md). |
+| [`kms/`](kms/) | Axum signing microservice: holds the ML-DSA-65 keypair, signs digests for the dealer, and publishes the verification key. See [`kms/README.md`](kms/README.md). |
+| [`dealer/circuit/`](dealer/circuit/) | Halo2 circuit crate: permutation proof, Poseidon Merkle commitment, KZG trusted setup, WASM verifier exports. See [`dealer/circuit/README.md`](dealer/circuit/README.md). |
 | [`circom_circuit/`](circom_circuit/) | **Deprecated.** Original Circom/Groth16 implementation, superseded by the Halo2 KZG circuit. Kept for reference only. |
 
 
-## Backend (shuffle service)
+## Backend (two services)
 
-The shuffle service is an **Axum HTTP server** (`rust/`) written in Rust. It is called once per round to generate the shuffle and produce the proof. Full API documentation, deployment instructions, and Docker/Cloud Run examples are in [`rust/README.md`](rust/README.md).
+The backend is split into two **Axum HTTP servers** written in Rust:
+
+- **`dealer/`** — called once per round to generate the shuffle and produce the proof. It never holds a signing key; it hashes each response and sends only the digest to the kms.
+- **`kms/`** — holds the ML-DSA-65 keypair, signs digests on the dealer's behalf, and serves the public verification key at `GET /public-key`.
+
+They are wired together (and can be run locally) with the top-level [`docker-compose.yml`](docker-compose.yml). Full API documentation, deployment instructions, and Docker/Cloud Run examples are in [`dealer/README.md`](dealer/README.md) and [`kms/README.md`](kms/README.md).
 
 ## Client-side validation
 
@@ -61,12 +67,15 @@ for (const { sibling, direction } of merklePath) {
 const cardValid = current === root;
 ```
 
-**Step 3: Verify the ML-DSA-65 signature.** The `mlDsaSignature` field proves the response came from the legitimate server. The signed payload is the raw proof bytes followed by the 8-byte little-endian Unix timestamp. Use the [`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum) library and the public verification key from [`rust/README.md`](rust/README.md).
+**Step 3: Verify the ML-DSA-65 signature.** The `mlDsaSignature` field proves the response came from the legitimate operator. The signature covers `SHA-256("skullcard-shuffle-v1" || proof_bytes || timestamp_u64_le)` — the domain-tagged payload is hashed first, and the 32-byte digest is signed with the **empty** ML-DSA context. Recompute that digest and verify against it (not the raw payload) using the [`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum) library and the public verification key from the kms service's `GET /public-key` (see [`kms/README.md`](kms/README.md)). Full details in [ML-DSA-KEYS.md](ML-DSA-KEYS.md).
 
 
 ## Integration tests
 
-A local backend service must be running for these integration tests (`integration.test.js`).
+Both backend services (`dealer` and `kms`) must be running for these integration tests
+(`integration.test.js`) — the easiest way is `docker compose up --build` from this directory. The
+tests reach the dealer at `http://127.0.0.1:8080` and the kms at `http://127.0.0.1:8081` (override
+with `BACKEND_URL` / `KMS_URL`).
 
 ```bash
 npm install

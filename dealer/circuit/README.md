@@ -32,7 +32,7 @@ The circuit implicitly builds a `52 × 52` presence matrix. Constraining every r
 
 ### Merkle commitment
 
-Leaf hashes: `poseidon(cards[i], salts[i])` for positions 0–51; positions 52–63 are `poseidon(0, 0)` (padding to the next power of 2). The 64 leaves are hashed pairwise up 6 levels to produce the root. The circuit constrains this computed root to equal the **public instance column value**.
+Leaf hashes: `poseidon(cards[i], salts[i])` for positions 0-51; positions 52-63 are `poseidon(0, 0)` (padding to the next power of 2). The 64 leaves are hashed pairwise up 6 levels to produce the root. The circuit constrains this computed root to equal the **public instance column value**.
 
 The instance is the only public value in the proof. It is what binds the proof to a specific deck; a proof generated for deck A cannot verify deck B.
 
@@ -46,7 +46,7 @@ This opens a concrete attack: the dealer pre-generates a valid proof for any dec
 
 The client performs three steps that together link a player's hand to the proof without trusting any server-supplied value:
 
-1. **ZK proof verification (worker):** the proof bundle is passed to the WASM verifier. The verifier extracts the committed root from bytes 0–31 and checks the proof against it. This confirms the server ran a valid shuffle circuit.
+1. **ZK proof verification (worker):** the proof bundle is passed to the WASM verifier. The verifier extracts the committed root from bytes 0-31 and checks the proof against it. This confirms the server ran a valid shuffle circuit.
 2. **Root extraction (main thread):** the client independently decodes the same first 32 bytes as a little-endian BN256 Fr element. The server never supplies this value; it is read directly from the proof bundle.
 3. **Card path verification (main thread):** for each card, the client computes `poseidon(cardIndex, salt)` to get the leaf, walks the Merkle path using the server-supplied sibling hashes, and checks the result matches the root from step 2.
 
@@ -106,7 +106,7 @@ wasm-pack build --target web --out-dir pkg --features wasm
 
 **Backend** (`main.rs`) reads both files at startup before binding the socket, calling `load_from_bytes` to pre-populate `OnceLock<ParamsKZG>` and `OnceLock<VerifyingKey>`. After that, `get_params()` and `get_vk()` return from cache immediately with no disk access or regeneration.
 
-**Browser worker** (`verifier.worker.js`) fetches both files over HTTP at worker init time and calls the WASM-exported `load_verifier_from_bytes`. The worker pre-warms on component mount so by the time the ~30–45 s proof generation completes, verification is instant.
+**Browser worker** (`verifier.worker.js`) fetches both files over HTTP at worker init time and calls the WASM-exported `load_verifier_from_bytes`. The worker pre-warms on component mount so by the time the ~30-45 s proof generation completes, verification is instant.
 
 **Integration tests** (`integration.test.js`) read both files from disk and call `load_verifier_from_bytes` in the `before` block, the same pattern as the worker.
 
@@ -130,8 +130,8 @@ create_proof::<KZGCommitmentScheme<Bn256>, ProverSHPLONK<Bn256>, _, _, _, _>(
 The finalized proof is returned as bytes, then the root is prepended by hand to form the bundle:
 
 ```rust
-bundle.extend_from_slice(root.to_repr().as_ref()); // bytes 0–31: LE BN256 Fr root
-bundle.extend_from_slice(&proof);                  // bytes 32–end: SHPLONK proof
+bundle.extend_from_slice(root.to_repr().as_ref()); // bytes 0-31: LE BN256 Fr root
+bundle.extend_from_slice(&proof);                  // bytes 32-end: SHPLONK proof
 ```
 
 The root is prepended rather than emitted by the circuit because halo2 has no circuit outputs; see the Public instance section above.
@@ -147,7 +147,7 @@ Exports (defined in `src/wasm.rs`):
 
 | Function | Signature | Used by | Description |
 |----------|-----------|---------|-------------|
-| `verify_deck` | `(bundle: Uint8Array) → bool` | Browser, tests | Verify a proof bundle (extracts root from bytes 0–31 internally) |
+| `verify_deck` | `(bundle: Uint8Array) → bool` | Browser, tests | Verify a proof bundle (extracts root from bytes 0-31 internally) |
 | `poseidon2` | `(a: Uint8Array, b: Uint8Array) → Uint8Array` | Browser, `merkle.js` | Hash two 32-byte BN256 Fr field elements |
 | `load_verifier_from_bytes` | `(params: Uint8Array, vk: Uint8Array) → Result` | Worker, tests | Pre-load params and VK; must be called before `verify_deck` |
 | `prove_deck` | `(cards: Uint8Array) → Uint8Array` | Demo / backend | Prove 52 cards with internally generated random salts |

@@ -1,11 +1,8 @@
+mod kms_client;
 mod router;
 mod services;
-mod signing;
 
-// 8080 when PORT is unset; Cloud Run also defaults to 8080 and then sets PORT at runtime.
 const DEFAULT_PORT: &str = "8080";
-
-// Defaults match the output path of `cargo run --bin gen_verifier_assets`.
 const DEFAULT_PARAMS_PATH: &str = "circuit/pkg/params.bin";
 const DEFAULT_VK_PATH: &str = "circuit/pkg/vk.bin";
 
