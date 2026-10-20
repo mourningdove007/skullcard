@@ -18,3 +18,11 @@ services:
       - "8080:8080"
     depends_on:
       - kms
+  
+  vault:
+  image: hashicorp/vault:latest
+  ports: ["8200:8200"]
+  environment:
+    VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+    VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+  cap_add: [IPC_LOCK]
